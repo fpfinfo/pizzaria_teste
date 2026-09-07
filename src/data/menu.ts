@@ -8,6 +8,28 @@ export interface Pizza {
   emoji: string;
 }
 
+export interface Drink {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  emoji: string;
+  category: 'refrigerante' | 'suco' | 'agua';
+}
+
+export interface Crust {
+  id: string;
+  name: string;
+  price: number;
+  emoji: string;
+}
+
+export interface Coupon {
+  code: string;
+  discount: number; // percentage
+  description: string;
+}
+
 export const pizzas: Pizza[] = [
   // Tradicionais
   {
@@ -131,8 +153,42 @@ export const pizzas: Pizza[] = [
   },
 ];
 
+export const drinks: Drink[] = [
+  { id: 'coca-2l', name: 'Coca-Cola 2L', description: 'Garrafa 2 litros', price: 12, emoji: '🥤', category: 'refrigerante' },
+  { id: 'coca-lata', name: 'Coca-Cola Lata', description: 'Lata 350ml', price: 6, emoji: '🥫', category: 'refrigerante' },
+  { id: 'guarana-2l', name: 'Guaraná 2L', description: 'Garrafa 2 litros', price: 10, emoji: '🧃', category: 'refrigerante' },
+  { id: 'guarana-lata', name: 'Guaraná Lata', description: 'Lata 350ml', price: 5, emoji: '🥫', category: 'refrigerante' },
+  { id: 'suco-laranja', name: 'Suco de Laranja', description: 'Natural 500ml', price: 9, emoji: '🍊', category: 'suco' },
+  { id: 'suco-uva', name: 'Suco de Uva', description: 'Natural 500ml', price: 9, emoji: '🍇', category: 'suco' },
+  { id: 'agua-sem', name: 'Água sem Gás', description: '500ml', price: 4, emoji: '💧', category: 'agua' },
+  { id: 'agua-com', name: 'Água com Gás', description: '500ml', price: 5, emoji: '🫧', category: 'agua' },
+];
+
+export const crusts: Crust[] = [
+  { id: 'normal', name: 'Normal', price: 0, emoji: '⭕' },
+  { id: 'catupiry', name: 'Catupiry', price: 6, emoji: '🧀' },
+  { id: 'cheddar', name: 'Cheddar', price: 6, emoji: '🟡' },
+  { id: 'chocolate-borda', name: 'Chocolate', price: 8, emoji: '🍫' },
+  { id: 'nutella', name: 'Nutella', price: 10, emoji: '🤎' },
+];
+
+export const coupons: Coupon[] = [
+  { code: 'BEMVINDO10', discount: 10, description: '10% de desconto' },
+  { code: 'PROMO20', discount: 20, description: '20% de desconto' },
+  { code: 'FRETE5', discount: 5, description: '5% de desconto' },
+];
+
+export const deliveryFee = 5.00;
+
 export const sizes = {
   P: { label: 'Pequena', slices: '4 fatias', diameter: '25cm' },
   M: { label: 'Média', slices: '6 fatias', diameter: '30cm' },
   G: { label: 'Grande', slices: '8 fatias', diameter: '35cm' },
+};
+
+export const estimatedTime = {
+  novo: '40-50 min',
+  preparando: '25-35 min',
+  pronto: '10-15 min',
+  entregue: 'Entregue ✅',
 };

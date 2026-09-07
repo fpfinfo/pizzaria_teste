@@ -1,9 +1,18 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 export interface PizzaItem {
   id: string;
   name: string;
   size: 'P' | 'M' | 'G';
+  price: number;
+  quantity: number;
+  crust?: string;
+  crustPrice?: number;
+}
+
+export interface DrinkItem {
+  id: string;
+  name: string;
   price: number;
   quantity: number;
 }
@@ -13,37 +22,73 @@ export interface Order {
   customerName: string;
   customerPhone: string;
   address: string;
-  items: PizzaItem[];
+  pizzaItems: PizzaItem[];
+  drinkItems: DrinkItem[];
+  subtotal: number;
+  deliveryFee: number;
+  discount: number;
   total: number;
   cashPaid: number;
   change: number;
   status: 'novo' | 'preparando' | 'pronto' | 'entregue';
-  createdAt: Date;
+  createdAt: string;
   notes: string;
+  couponCode?: string;
 }
 
 interface OrderContextType {
   orders: Order[];
-  addOrder: (order: Omit<Order, 'id' | 'status' | 'createdAt'>) => void;
+  addOrder: (order: Omit<Order, 'id' | 'status' | 'createdAt'>) => string;
   updateOrderStatus: (id: string, status: Order['status']) => void;
-  getNewOrders: () => Order[];
-  getPreparingOrders: () => Order[];
-  getReadyOrders: () => Order[];
+  getStats: () => {
+    totalOrders: number;
+    totalRevenue: number;
+    avgTicket: number;
+    activeOrders: number;
+  };
 }
 
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
 
-export function OrderProvider({ children }: { children: ReactNode }) {
-  const [orders, setOrders] = useState<Order[]>([]);
+const STORAGE_KEY = 'bella-massa-orders';
 
-  const addOrder = (order: Omit<Order, 'id' | 'status' | 'createdAt'>) => {
+function loadOrders(): Order[] {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (e) {
+    console.error('Error loading orders:', e);
+  }
+  return [];
+}
+
+function saveOrders(orders: Order[]) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
+  } catch (e) {
+    console.error('Error saving orders:', e);
+  }
+}
+
+export function OrderProvider({ children }: { children: ReactNode }) {
+  const [orders, setOrders] = useState<Order[]>(loadOrders);
+
+  useEffect(() => {
+    saveOrders(orders);
+  }, [orders]);
+
+  const addOrder = (order: Omit<Order, 'id' | 'status' | 'createdAt'>): string => {
+    const id = `PED-${Date.now().toString(36).toUpperCase()}`;
     const newOrder: Order = {
       ...order,
-      id: `PED-${Date.now().toString(36).toUpperCase()}`,
+      id,
       status: 'novo',
-      createdAt: new Date(),
+      createdAt: new Date().toISOString(),
     };
     setOrders((prev) => [newOrder, ...prev]);
+    return id;
   };
 
   const updateOrderStatus = (id: string, status: Order['status']) => {
@@ -52,13 +97,26 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     );
   };
 
-  const getNewOrders = () => orders.filter((o) => o.status === 'novo');
-  const getPreparingOrders = () => orders.filter((o) => o.status === 'preparando');
-  const getReadyOrders = () => orders.filter((o) => o.status === 'pronto');
+  const getStats = () => {
+    const today = new Date().toDateString();
+    const todayOrders = orders.filter(
+      (o) => new Date(o.createdAt).toDateString() === today
+    );
+    const totalRevenue = todayOrders.reduce((sum, o) => sum + o.total, 0);
+    const activeOrders = orders.filter((o) => o.status !== 'entregue').length;
+    const avgTicket = todayOrders.length > 0 ? totalRevenue / todayOrders.length : 0;
+
+    return {
+      totalOrders: todayOrders.length,
+      totalRevenue,
+      avgTicket,
+      activeOrders,
+    };
+  };
 
   return (
     <OrderContext.Provider
-      value={{ orders, addOrder, updateOrderStatus, getNewOrders, getPreparingOrders, getReadyOrders }}
+      value={{ orders, addOrder, updateOrderStatus, getStats }}
     >
       {children}
     </OrderContext.Provider>
