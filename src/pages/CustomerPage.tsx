@@ -1,22 +1,22 @@
 import { useState } from 'react';
-import { pizzas, drinks, crusts, sizes, deliveryFee, coupons, Pizza, Drink } from '../data/menu';
-import { useOrders, PizzaItem, DrinkItem } from '../context/OrderContext';
+import { sizes, deliveryFee, coupons } from '../data/menu';
+import { useOrders } from '../context/OrderContext';
+import { useMenu } from '../context/MenuContext';
 
 type Size = 'P' | 'M' | 'G';
 type Tab = 'pizzas' | 'bebidas';
 
 interface CartPizzaItem {
   type: 'pizza';
-  pizza: Pizza;
+  pizza: { id: string; name: string; emoji: string; prices: { P: number; M: number; G: number } };
   size: Size;
-  crust: string;
-  crustPrice: number;
   quantity: number;
+  crust: { id: string; name: string; price: number } | null;
 }
 
 interface CartDrinkItem {
   type: 'drink';
-  drink: Drink;
+  drink: { id: string; name: string; emoji: string; price: number };
   quantity: number;
 }
 
@@ -24,17 +24,20 @@ type CartItem = CartPizzaItem | CartDrinkItem;
 
 export default function CustomerPage() {
   const { addOrder } = useOrders();
+  const { pizzas, drinks, crusts } = useMenu();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>('pizzas');
   const [selectedCategory, setSelectedCategory] = useState<'tradicional' | 'especial' | 'doce'>('tradicional');
-  const [drinkCategory, setDrinkCategory] = useState<'refrigerante' | 'suco' | 'agua'>('refrigerante');
+  const [drinkCategory, setDrinkCategory] = useState<'refrigerante' | 'suco' | 'agua' | 'outros'>('refrigerante');
   const [showCart, setShowCart] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [orderId, setOrderId] = useState('');
-  const [selectedPizza, setSelectedPizza] = useState<Pizza | null>(null);
+
+  // Pizza selection modal
+  const [selectedPizza, setSelectedPizza] = useState<typeof pizzas[0] | null>(null);
   const [selectedSize, setSelectedSize] = useState<Size>('M');
-  const [selectedCrust, setSelectedCrust] = useState('normal');
+  const [selectedCrust, setSelectedCrust] = useState<typeof crusts[0] | null>(null);
 
   // Form states
   const [customerName, setCustomerName] = useState('');
@@ -46,64 +49,64 @@ export default function CustomerPage() {
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discount: number } | null>(null);
   const [couponError, setCouponError] = useState('');
 
-  const filteredPizzas = pizzas.filter((p) => p.category === selectedCategory);
-  const filteredDrinks = drinks.filter((d) => d.category === drinkCategory);
+  const filteredPizzas = pizzas.filter((p) => p.category === selectedCategory && p.available);
+  const filteredDrinks = drinks.filter((d) => d.category === drinkCategory && d.available);
+  const availableCrusts = crusts.filter((c) => c.available);
 
-  const getCrustPrice = () => {
-    const crust = crusts.find((c) => c.id === selectedCrust);
-    return crust ? crust.price : 0;
-  };
-
-  const addPizzaToCart = () => {
+  const addToCart = () => {
     if (!selectedPizza) return;
-    const crustPrice = getCrustPrice();
-    setCart((prev) => {
-      const existing = prev.find(
-        (item) =>
+    const existing = cart.find(
+      (item) =>
+        item.type === 'pizza' &&
+        item.pizza.id === selectedPizza.id &&
+        item.size === selectedSize &&
+        item.crust?.id === selectedCrust?.id
+    ) as CartPizzaItem | undefined;
+
+    if (existing) {
+      setCart((prev) =>
+        prev.map((item) =>
           item.type === 'pizza' &&
           item.pizza.id === selectedPizza.id &&
           item.size === selectedSize &&
-          item.crust === selectedCrust
-      );
-      if (existing) {
-        return prev.map((item) =>
-          item.type === 'pizza' &&
-          item.pizza.id === selectedPizza.id &&
-          item.size === selectedSize &&
-          item.crust === selectedCrust
+          item.crust?.id === selectedCrust?.id
             ? { ...item, quantity: item.quantity + 1 }
             : item
-        );
-      }
-      return [
+        )
+      );
+    } else {
+      setCart((prev) => [
         ...prev,
         {
           type: 'pizza' as const,
-          pizza: selectedPizza,
+          pizza: { id: selectedPizza.id, name: selectedPizza.name, emoji: selectedPizza.emoji, prices: selectedPizza.prices },
           size: selectedSize,
-          crust: selectedCrust,
-          crustPrice,
           quantity: 1,
+          crust: selectedCrust && selectedCrust.price > 0 ? { id: selectedCrust.id, name: selectedCrust.name, price: selectedCrust.price } : null,
         },
-      ];
-    });
+      ]);
+    }
     setSelectedPizza(null);
+    setSelectedSize('M');
+    setSelectedCrust(null);
   };
 
-  const addDrinkToCart = (drink: Drink) => {
-    setCart((prev) => {
-      const existing = prev.find(
-        (item) => item.type === 'drink' && item.drink.id === drink.id
-      );
-      if (existing) {
-        return prev.map((item) =>
+  const addDrinkToCart = (drink: { id: string; name: string; emoji: string; price: number }) => {
+    const existing = cart.find(
+      (item) => item.type === 'drink' && item.drink.id === drink.id
+    ) as CartDrinkItem | undefined;
+
+    if (existing) {
+      setCart((prev) =>
+        prev.map((item) =>
           item.type === 'drink' && item.drink.id === drink.id
             ? { ...item, quantity: item.quantity + 1 }
             : item
-        );
-      }
-      return [...prev, { type: 'drink' as const, drink, quantity: 1 }];
-    });
+        )
+      );
+    } else {
+      setCart((prev) => [...prev, { type: 'drink' as const, drink, quantity: 1 }]);
+    }
   };
 
   const removeFromCart = (index: number) => {
@@ -124,32 +127,30 @@ export default function CustomerPage() {
     );
   };
 
-  const getSubtotal = () => {
-    return cart.reduce((sum, item) => {
-      if (item.type === 'pizza') {
-        return sum + (item.pizza.prices[item.size] + item.crustPrice) * item.quantity;
-      }
-      return sum + item.drink.price * item.quantity;
-    }, 0);
+  const getItemPrice = (item: CartItem) => {
+    if (item.type === 'pizza') {
+      const base = item.pizza.prices[item.size];
+      const crust = item.crust?.price || 0;
+      return (base + crust) * item.quantity;
+    }
+    return item.drink.price * item.quantity;
   };
+
+  const getSubtotal = () => cart.reduce((sum, item) => sum + getItemPrice(item), 0);
 
   const getDiscount = () => {
     if (!appliedCoupon) return 0;
     return (getSubtotal() * appliedCoupon.discount) / 100;
   };
 
-  const getTotal = () => {
-    return getSubtotal() + deliveryFee - getDiscount();
-  };
+  const getTotal = () => getSubtotal() + deliveryFee - getDiscount();
 
-  const getTotalItems = () => {
-    return cart.reduce((sum, item) => sum + item.quantity, 0);
-  };
+  const getTotalItems = () => cart.reduce((sum, item) => sum + item.quantity, 0);
 
   const applyCoupon = () => {
-    const coupon = coupons.find((c) => c.code === couponInput.toUpperCase());
-    if (coupon) {
-      setAppliedCoupon({ code: coupon.code, discount: coupon.discount });
+    const code = couponInput.toUpperCase();
+    if (coupons[code]) {
+      setAppliedCoupon({ code, discount: coupons[code] });
       setCouponError('');
     } else {
       setCouponError('Cupom inválido');
@@ -167,19 +168,19 @@ export default function CustomerPage() {
       return;
     }
 
-    const pizzaItems: PizzaItem[] = cart
+    const pizzaItems = cart
       .filter((item): item is CartPizzaItem => item.type === 'pizza')
       .map((item) => ({
-        id: `${item.pizza.id}-${item.size}-${item.crust}`,
-        name: `${item.pizza.name} (${item.size})${item.crust !== 'normal' ? ` + Borda ${crusts.find(c => c.id === item.crust)?.name}` : ''}`,
+        id: `${item.pizza.id}-${item.size}`,
+        name: `${item.pizza.name} (${item.size})${item.crust ? ` + ${item.crust.name}` : ''}`,
         size: item.size,
-        price: item.pizza.prices[item.size] + item.crustPrice,
+        price: item.pizza.prices[item.size] + (item.crust?.price || 0),
         quantity: item.quantity,
-        crust: item.crust,
-        crustPrice: item.crustPrice,
+        crust: item.crust?.name,
+        crustPrice: item.crust?.price,
       }));
 
-    const drinkItems: DrinkItem[] = cart
+    const drinkItems = cart
       .filter((item): item is CartDrinkItem => item.type === 'drink')
       .map((item) => ({
         id: item.drink.id,
@@ -221,116 +222,31 @@ export default function CustomerPage() {
   if (orderSuccess) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-3xl shadow-xl p-8 max-w-md w-full text-center animate-bounce-in">
-          <div className="text-6xl mb-4 animate-bounce">✅</div>
+        <div className="bg-white rounded-3xl shadow-xl p-8 max-w-md w-full text-center animate-fade-in">
+          <div className="text-6xl mb-4 animate-bounce-slow">✅</div>
           <h2 className="text-2xl font-bold text-gray-800 mb-2">Pedido Realizado!</h2>
           <p className="text-gray-600 mb-4">Seu pedido foi enviado para a cozinha.</p>
           <div className="bg-orange-50 rounded-xl p-4 mb-4">
             <p className="text-sm text-gray-500">Número do pedido</p>
-            <p className="text-2xl font-bold text-orange-600">{orderId}</p>
+            <p className="text-xl font-bold text-orange-600">{orderId}</p>
           </div>
-          <div className="bg-blue-50 rounded-xl p-4 mb-4">
-            <p className="text-sm text-gray-500">⏱️ Tempo estimado</p>
-            <p className="text-lg font-bold text-blue-600">40-50 minutos</p>
+          <div className="bg-blue-50 rounded-xl p-4 mb-6">
+            <p className="text-sm text-gray-500">Tempo estimado</p>
+            <p className="text-lg font-bold text-blue-600">🕐 30-45 minutos</p>
           </div>
-          <div className="bg-green-50 rounded-xl p-3 mb-6">
-            <p className="text-sm text-gray-600">
-              💰 Pagamento: <span className="font-bold">R$ {getTotal().toFixed(2)}</span> em dinheiro na entrega
-            </p>
-          </div>
-          <button
-            onClick={() => setOrderSuccess(false)}
-            className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-bold py-3 px-6 rounded-xl transition-all transform hover:scale-105 shadow-lg"
-          >
-            Fazer Novo Pedido 🍕
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Pizza Detail Modal
-  if (selectedPizza) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-3xl shadow-xl p-6 max-w-lg w-full">
-          <div className="text-center mb-6">
-            <span className="text-6xl">{selectedPizza.emoji}</span>
-            <h2 className="text-2xl font-bold text-gray-800 mt-2">{selectedPizza.name}</h2>
-            <p className="text-gray-500 text-sm">{selectedPizza.ingredients}</p>
-          </div>
-
-          {/* Size Selection */}
-          <div className="mb-6">
-            <h3 className="font-semibold text-gray-700 mb-3">📏 Escolha o tamanho:</h3>
-            <div className="grid grid-cols-3 gap-2">
-              {(['P', 'M', 'G'] as Size[]).map((size) => (
-                <button
-                  key={size}
-                  onClick={() => setSelectedSize(size)}
-                  className={`p-3 rounded-xl border-2 transition-all ${
-                    selectedSize === size
-                      ? 'border-orange-500 bg-orange-50 shadow-md'
-                      : 'border-gray-200 hover:border-orange-300'
-                  }`}
-                >
-                  <p className="font-bold text-lg">{size}</p>
-                  <p className="text-xs text-gray-500">{sizes[size].label}</p>
-                  <p className="text-xs text-gray-400">{sizes[size].diameter}</p>
-                  <p className="font-bold text-orange-600 mt-1">
-                    R$ {selectedPizza.prices[size].toFixed(2)}
-                  </p>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Crust Selection */}
-          <div className="mb-6">
-            <h3 className="font-semibold text-gray-700 mb-3">🧀 Borda recheada:</h3>
-            <div className="grid grid-cols-2 gap-2">
-              {crusts.map((crust) => (
-                <button
-                  key={crust.id}
-                  onClick={() => setSelectedCrust(crust.id)}
-                  className={`p-3 rounded-xl border-2 transition-all text-left ${
-                    selectedCrust === crust.id
-                      ? 'border-orange-500 bg-orange-50 shadow-md'
-                      : 'border-gray-200 hover:border-orange-300'
-                  }`}
-                >
-                  <span className="text-lg">{crust.emoji}</span>
-                  <p className="font-medium text-sm text-gray-700">{crust.name}</p>
-                  <p className="text-xs text-orange-600 font-semibold">
-                    {crust.price > 0 ? `+ R$ ${crust.price.toFixed(2)}` : 'Grátis'}
-                  </p>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Total & Add */}
-          <div className="bg-gray-50 rounded-xl p-4 mb-4">
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Total do item:</span>
-              <span className="text-xl font-bold text-orange-600">
-                R$ {(selectedPizza.prices[selectedSize] + getCrustPrice()).toFixed(2)}
-              </span>
-            </div>
-          </div>
-
+          <p className="text-sm text-gray-500 mb-6">💰 Pagamento em dinheiro na entrega</p>
           <div className="flex gap-3">
-            <button
-              onClick={() => setSelectedPizza(null)}
-              className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-3 px-6 rounded-xl transition-colors"
+            <a
+              href={`/rastrear/${orderId}`}
+              className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-xl transition-colors text-center text-sm"
             >
-              Voltar
-            </button>
+              📍 Rastrear
+            </a>
             <button
-              onClick={addPizzaToCart}
-              className="flex-1 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-bold py-3 px-6 rounded-xl transition-all transform hover:scale-105 shadow-lg"
+              onClick={() => setOrderSuccess(false)}
+              className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-4 rounded-xl transition-colors text-sm"
             >
-              Adicionar 🛒
+              Novo Pedido
             </button>
           </div>
         </div>
@@ -352,12 +268,12 @@ export default function CustomerPage() {
           </div>
           <button
             onClick={() => setShowCart(true)}
-            className="relative bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white px-4 py-2 rounded-xl font-semibold transition-all flex items-center gap-2 shadow-lg"
+            className="relative bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-xl font-semibold transition-colors flex items-center gap-2"
           >
             <span>🛒</span>
             <span className="hidden sm:inline">Carrinho</span>
             {getTotalItems() > 0 && (
-              <span className="absolute -top-2 -right-2 bg-red-600 text-white text-xs w-6 h-6 rounded-full flex items-center justify-center font-bold animate-pulse">
+              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs w-6 h-6 rounded-full flex items-center justify-center font-bold animate-bounce-slow">
                 {getTotalItems()}
               </span>
             )}
@@ -367,12 +283,12 @@ export default function CustomerPage() {
 
       {/* Main Tabs */}
       <div className="max-w-6xl mx-auto px-4 pt-4">
-        <div className="flex gap-2 bg-white rounded-xl p-1 shadow-sm">
+        <div className="flex gap-2 bg-white rounded-2xl p-1.5 shadow-sm">
           <button
             onClick={() => setActiveTab('pizzas')}
-            className={`flex-1 py-2.5 rounded-lg font-semibold transition-all ${
+            className={`flex-1 py-2.5 rounded-xl font-semibold transition-all ${
               activeTab === 'pizzas'
-                ? 'bg-orange-500 text-white shadow-md'
+                ? 'bg-orange-500 text-white shadow-lg'
                 : 'text-gray-600 hover:bg-orange-50'
             }`}
           >
@@ -380,9 +296,9 @@ export default function CustomerPage() {
           </button>
           <button
             onClick={() => setActiveTab('bebidas')}
-            className={`flex-1 py-2.5 rounded-lg font-semibold transition-all ${
+            className={`flex-1 py-2.5 rounded-xl font-semibold transition-all ${
               activeTab === 'bebidas'
-                ? 'bg-orange-500 text-white shadow-md'
+                ? 'bg-orange-500 text-white shadow-lg'
                 : 'text-gray-600 hover:bg-orange-50'
             }`}
           >
@@ -391,9 +307,9 @@ export default function CustomerPage() {
         </div>
       </div>
 
-      {activeTab === 'pizzas' ? (
+      {/* Pizza Content */}
+      {activeTab === 'pizzas' && (
         <>
-          {/* Category Tabs */}
           <div className="max-w-6xl mx-auto px-4 pt-4">
             <div className="flex gap-2 overflow-x-auto pb-2">
               {(['tradicional', 'especial', 'doce'] as const).map((cat) => (
@@ -415,43 +331,55 @@ export default function CustomerPage() {
             </div>
           </div>
 
-          {/* Pizza Grid */}
           <div className="max-w-6xl mx-auto px-4 py-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredPizzas.map((pizza) => (
                 <div
                   key={pizza.id}
+                  className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-lg transition-all border border-gray-100 hover:border-orange-200 cursor-pointer"
                   onClick={() => setSelectedPizza(pizza)}
-                  className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-lg transition-all cursor-pointer border border-gray-100 hover:border-orange-200 group"
                 >
-                  <div className="flex items-start gap-3">
-                    <span className="text-4xl group-hover:scale-110 transition-transform">{pizza.emoji}</span>
+                  <div className="flex justify-between items-start">
                     <div className="flex-1">
-                      <h3 className="font-bold text-gray-800">{pizza.name}</h3>
-                      <p className="text-xs text-gray-500 mt-0.5">{pizza.description}</p>
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl">{pizza.emoji}</span>
+                        <h3 className="font-bold text-gray-800">{pizza.name}</h3>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">{pizza.description}</p>
                       <p className="text-xs text-gray-400 mt-1 line-clamp-2">{pizza.ingredients}</p>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
-                    <div>
-                      <span className="text-xs text-gray-400">A partir de</span>
-                      <p className="font-bold text-orange-600">R$ {pizza.prices.P.toFixed(2)}</p>
+                  <div className="flex items-center justify-between mt-3">
+                    <div className="flex gap-2">
+                      {(['P', 'M', 'G'] as Size[]).map((s) => (
+                        <span key={s} className="text-xs text-gray-500">
+                          {s}: <span className="font-semibold text-orange-600">R${pizza.prices[s]}</span>
+                        </span>
+                      ))}
                     </div>
                     <button className="bg-orange-100 hover:bg-orange-200 text-orange-600 px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors">
-                      Escolher +
+                      + Adicionar
                     </button>
                   </div>
                 </div>
               ))}
             </div>
+            {filteredPizzas.length === 0 && (
+              <div className="text-center py-12 text-gray-400">
+                <div className="text-5xl mb-3">🍕</div>
+                <p>Nenhuma pizza disponível nesta categoria</p>
+              </div>
+            )}
           </div>
         </>
-      ) : (
-        /* Drinks Tab */
+      )}
+
+      {/* Drinks Content */}
+      {activeTab === 'bebidas' && (
         <>
           <div className="max-w-6xl mx-auto px-4 pt-4">
             <div className="flex gap-2 overflow-x-auto pb-2">
-              {(['refrigerante', 'suco', 'agua'] as const).map((cat) => (
+              {(['refrigerante', 'suco', 'agua', 'outros'] as const).map((cat) => (
                 <button
                   key={cat}
                   onClick={() => setDrinkCategory(cat)}
@@ -464,6 +392,7 @@ export default function CustomerPage() {
                   {cat === 'refrigerante' && '🥤 '}
                   {cat === 'suco' && '🍊 '}
                   {cat === 'agua' && '💧 '}
+                  {cat === 'outros' && '🍺 '}
                   {cat.charAt(0).toUpperCase() + cat.slice(1)}
                 </button>
               ))}
@@ -471,7 +400,7 @@ export default function CustomerPage() {
           </div>
 
           <div className="max-w-6xl mx-auto px-4 py-4">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               {filteredDrinks.map((drink) => (
                 <div
                   key={drink.id}
@@ -479,56 +408,114 @@ export default function CustomerPage() {
                 >
                   <span className="text-4xl">{drink.emoji}</span>
                   <h3 className="font-bold text-gray-800 mt-2 text-sm">{drink.name}</h3>
-                  <p className="text-xs text-gray-500">{drink.description}</p>
                   <p className="font-bold text-orange-600 mt-2">R$ {drink.price.toFixed(2)}</p>
                   <button
                     onClick={() => addDrinkToCart(drink)}
                     className="mt-2 w-full bg-orange-100 hover:bg-orange-200 text-orange-600 py-2 rounded-lg text-sm font-semibold transition-colors"
                   >
-                    Adicionar +
+                    + Adicionar
                   </button>
                 </div>
               ))}
             </div>
+            {filteredDrinks.length === 0 && (
+              <div className="text-center py-12 text-gray-400">
+                <div className="text-5xl mb-3">🥤</div>
+                <p>Nenhuma bebida disponível</p>
+              </div>
+            )}
           </div>
         </>
       )}
 
-      {/* Floating Cart Button */}
-      {getTotalItems() > 0 && !showCart && (
-        <div className="fixed bottom-4 left-4 right-4 max-w-6xl mx-auto z-30">
-          <button
-            onClick={() => setShowCart(true)}
-            className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold py-4 px-6 rounded-2xl shadow-2xl flex items-center justify-between transition-all transform hover:scale-[1.02]"
-          >
-            <span className="flex items-center gap-2">
-              🛒 {getTotalItems()} {getTotalItems() === 1 ? 'item' : 'itens'}
-            </span>
-            <span className="text-lg">R$ {getTotal().toFixed(2)}</span>
-          </button>
+      {/* Pizza Selection Modal */}
+      {selectedPizza && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setSelectedPizza(null)} />
+          <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-gray-800">
+                  {selectedPizza.emoji} {selectedPizza.name}
+                </h2>
+                <button onClick={() => setSelectedPizza(null)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
+              </div>
+
+              <p className="text-sm text-gray-500 mb-4">{selectedPizza.ingredients}</p>
+
+              {/* Size Selection */}
+              <div className="mb-4">
+                <p className="font-semibold text-gray-700 mb-2">📏 Tamanho</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['P', 'M', 'G'] as Size[]).map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setSelectedSize(s)}
+                      className={`p-3 rounded-xl border-2 transition-all text-center ${
+                        selectedSize === s
+                          ? 'border-orange-500 bg-orange-50'
+                          : 'border-gray-200 hover:border-orange-300'
+                      }`}
+                    >
+                      <p className="font-bold text-gray-800">{s}</p>
+                      <p className="text-xs text-gray-500">{sizes[s].diameter}</p>
+                      <p className="text-sm font-bold text-orange-600 mt-1">R${selectedPizza.prices[s]}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Crust Selection */}
+              <div className="mb-6">
+                <p className="font-semibold text-gray-700 mb-2">🧀 Borda</p>
+                <div className="space-y-2">
+                  {availableCrusts.map((crust) => (
+                    <button
+                      key={crust.id}
+                      onClick={() => setSelectedCrust(crust)}
+                      className={`w-full p-3 rounded-xl border-2 transition-all text-left flex items-center justify-between ${
+                        selectedCrust?.id === crust.id
+                          ? 'border-orange-500 bg-orange-50'
+                          : 'border-gray-200 hover:border-orange-300'
+                      }`}
+                    >
+                      <span className="font-medium text-gray-700">
+                        {crust.emoji} {crust.name}
+                      </span>
+                      <span className="font-bold text-orange-600">
+                        {crust.price > 0 ? `+R$${crust.price}` : 'Grátis'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                onClick={addToCart}
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl transition-colors"
+              >
+                Adicionar ao Carrinho
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
       {/* Cart Drawer */}
       {showCart && (
         <div className="fixed inset-0 z-50 flex">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowCart(false)} />
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowCart(false)} />
           <div className="relative ml-auto w-full max-w-md bg-white h-full overflow-y-auto shadow-2xl">
             <div className="sticky top-0 bg-white border-b p-4 flex items-center justify-between z-10">
               <h2 className="text-xl font-bold text-gray-800">🛒 Seu Pedido</h2>
-              <button
-                onClick={() => setShowCart(false)}
-                className="text-gray-400 hover:text-gray-600 text-2xl w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100"
-              >
-                ✕
-              </button>
+              <button onClick={() => setShowCart(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
             </div>
 
             {cart.length === 0 ? (
               <div className="p-8 text-center text-gray-400">
                 <div className="text-5xl mb-4">🍕</div>
-                <p className="font-medium">Seu carrinho está vazio</p>
-                <p className="text-sm">Adicione pizzas e bebidas deliciosas!</p>
+                <p>Seu carrinho está vazio</p>
+                <p className="text-sm">Adicione pizzas e bebidas!</p>
               </div>
             ) : (
               <>
@@ -536,95 +523,69 @@ export default function CustomerPage() {
                   {cart.map((item, index) => (
                     <div key={index} className="bg-gray-50 rounded-xl p-3">
                       <div className="flex justify-between items-start">
-                        <div>
+                        <div className="flex-1">
                           {item.type === 'pizza' ? (
                             <>
                               <p className="font-semibold text-gray-800">
-                                {item.pizza.emoji} {item.pizza.name}
+                                {item.pizza.emoji} {item.pizza.name} ({item.size})
                               </p>
-                              <p className="text-sm text-gray-500">
-                                Tamanho {item.size} - {sizes[item.size].label}
-                              </p>
-                              {item.crust !== 'normal' && (
-                                <p className="text-xs text-orange-600">
-                                  + Borda {crusts.find(c => c.id === item.crust)?.name}
-                                </p>
+                              {item.crust && (
+                                <p className="text-xs text-orange-600">+ {item.crust.name} (R${item.crust.price.toFixed(2)})</p>
                               )}
+                              <p className="text-sm text-gray-500">Tamanho {sizes[item.size].label}</p>
                             </>
                           ) : (
                             <>
                               <p className="font-semibold text-gray-800">
                                 {item.drink.emoji} {item.drink.name}
                               </p>
-                              <p className="text-sm text-gray-500">{item.drink.description}</p>
                             </>
                           )}
                         </div>
-                        <button
-                          onClick={() => removeFromCart(index)}
-                          className="text-red-400 hover:text-red-600 text-sm"
-                        >
-                          ✕
-                        </button>
+                        <button onClick={() => removeFromCart(index)} className="text-red-400 hover:text-red-600 text-sm">✕</button>
                       </div>
                       <div className="flex items-center justify-between mt-2">
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => updateQuantity(index, -1)}
                             className="w-8 h-8 rounded-full bg-orange-100 text-orange-600 font-bold hover:bg-orange-200 transition-colors"
-                          >
-                            -
-                          </button>
+                          >-</button>
                           <span className="font-bold text-gray-700 w-6 text-center">{item.quantity}</span>
                           <button
                             onClick={() => updateQuantity(index, 1)}
                             className="w-8 h-8 rounded-full bg-orange-100 text-orange-600 font-bold hover:bg-orange-200 transition-colors"
-                          >
-                            +
-                          </button>
+                          >+</button>
                         </div>
-                        <p className="font-bold text-orange-600">
-                          R$ {item.type === 'pizza'
-                            ? ((item.pizza.prices[item.size] + item.crustPrice) * item.quantity).toFixed(2)
-                            : (item.drink.price * item.quantity).toFixed(2)
-                          }
-                        </p>
+                        <p className="font-bold text-orange-600">R$ {getItemPrice(item).toFixed(2)}</p>
                       </div>
                     </div>
                   ))}
                 </div>
 
-                {/* Summary */}
-                <div className="px-4 pb-4">
-                  <div className="bg-gray-50 rounded-xl p-4 space-y-2">
-                    <div className="flex justify-between text-sm text-gray-600">
+                <div className="sticky bottom-0 bg-white border-t p-4">
+                  <div className="space-y-1 mb-3 text-sm">
+                    <div className="flex justify-between text-gray-600">
                       <span>Subtotal</span>
                       <span>R$ {getSubtotal().toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between text-sm text-gray-600">
-                      <span>🚚 Taxa de entrega</span>
+                    <div className="flex justify-between text-gray-600">
+                      <span>Taxa de entrega</span>
                       <span>R$ {deliveryFee.toFixed(2)}</span>
                     </div>
                     {appliedCoupon && (
-                      <div className="flex justify-between text-sm text-green-600">
-                        <span>🎟️ Cupom {appliedCoupon.code} (-{appliedCoupon.discount}%)</span>
-                        <span>- R$ {getDiscount().toFixed(2)}</span>
+                      <div className="flex justify-between text-green-600">
+                        <span>Desconto ({appliedCoupon.code})</span>
+                        <span>-R$ {getDiscount().toFixed(2)}</span>
                       </div>
                     )}
-                    <div className="border-t pt-2 flex justify-between items-center">
-                      <span className="text-lg font-bold text-gray-800">Total:</span>
-                      <span className="text-2xl font-bold text-orange-600">R$ {getTotal().toFixed(2)}</span>
-                    </div>
                   </div>
-                </div>
-
-                <div className="sticky bottom-0 bg-white border-t p-4 space-y-3">
+                  <div className="flex justify-between items-center mb-4 pt-2 border-t">
+                    <span className="text-lg font-bold text-gray-800">Total:</span>
+                    <span className="text-2xl font-bold text-orange-600">R$ {getTotal().toFixed(2)}</span>
+                  </div>
                   <button
-                    onClick={() => {
-                      setShowCart(false);
-                      setShowCheckout(true);
-                    }}
-                    className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg"
+                    onClick={() => { setShowCart(false); setShowCheckout(true); }}
+                    className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-xl transition-colors"
                   >
                     Finalizar Pedido 💰
                   </button>
@@ -638,17 +599,12 @@ export default function CustomerPage() {
       {/* Checkout Modal */}
       {showCheckout && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowCheckout(false)} />
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowCheckout(false)} />
           <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-gray-800">📋 Finalizar Pedido</h2>
-                <button
-                  onClick={() => setShowCheckout(false)}
-                  className="text-gray-400 hover:text-gray-600 text-2xl w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100"
-                >
-                  ✕
-                </button>
+                <h2 className="text-xl font-bold text-gray-800">Finalizar Pedido</h2>
+                <button onClick={() => setShowCheckout(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
               </div>
 
               <div className="bg-orange-50 rounded-xl p-4 mb-6">
@@ -658,100 +614,86 @@ export default function CustomerPage() {
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">
-                    👤 Nome completo
-                  </label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Nome *</label>
                   <input
                     type="text"
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none transition-all"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 outline-none transition-all"
                     placeholder="Seu nome"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">
-                    📱 Telefone / WhatsApp
-                  </label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Telefone *</label>
                   <input
                     type="tel"
                     value={customerPhone}
                     onChange={(e) => setCustomerPhone(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none transition-all"
-                    placeholder="(11) 99999-9999"
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 outline-none transition-all"
+                    placeholder="(00) 00000-0000"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">
-                    📍 Endereço de entrega
-                  </label>
-                  <textarea
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none transition-all resize-none"
-                    rows={2}
-                    placeholder="Rua, número, bairro, complemento..."
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">
-                    📝 Observações (opcional)
-                  </label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Endereço *</label>
                   <input
                     type="text"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 outline-none transition-all"
+                    placeholder="Rua, número, bairro"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Observações</label>
+                  <textarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none transition-all"
-                    placeholder="Ex: sem cebola, portão azul..."
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 outline-none transition-all resize-none"
+                    rows={2}
+                    placeholder="Ex: sem cebola, ponto bem assado..."
                   />
                 </div>
 
                 {/* Coupon */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">
-                    🎟️ Cupom de desconto
-                  </label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">🎟️ Cupom de desconto</label>
                   <div className="flex gap-2">
                     <input
                       type="text"
                       value={couponInput}
                       onChange={(e) => setCouponInput(e.target.value)}
-                      className="flex-1 px-4 py-3 rounded-xl border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none transition-all uppercase"
-                      placeholder="Digite o cupom"
+                      className="flex-1 px-4 py-3 rounded-xl border border-gray-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 outline-none transition-all uppercase"
+                      placeholder="Código do cupom"
                     />
                     <button
                       onClick={applyCoupon}
-                      className="px-4 py-3 bg-orange-100 hover:bg-orange-200 text-orange-600 font-semibold rounded-xl transition-colors"
+                      className="bg-gray-800 hover:bg-gray-900 text-white px-4 py-3 rounded-xl font-semibold transition-colors"
                     >
                       Aplicar
                     </button>
                   </div>
+                  {couponError && <p className="text-red-500 text-xs mt-1">{couponError}</p>}
                   {appliedCoupon && (
-                    <p className="text-sm text-green-600 mt-1">✅ {appliedCoupon.code} aplicado! (-{appliedCoupon.discount}%)</p>
+                    <p className="text-green-600 text-xs mt-1">✅ {appliedCoupon.code} - {appliedCoupon.discount}% de desconto</p>
                   )}
-                  {couponError && (
-                    <p className="text-sm text-red-500 mt-1">{couponError}</p>
-                  )}
-                  <p className="text-xs text-gray-400 mt-1">Teste: BEMVINDO10, PROMO20</p>
+                  <p className="text-xs text-gray-400 mt-1">Teste: BEMVINDO, PROMO15, VIP20</p>
                 </div>
 
                 {/* Cash Payment */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">
-                    💵 Valor em dinheiro que vai pagar
-                  </label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">💵 Valor em dinheiro *</label>
                   <input
                     type="number"
                     value={cashPaid}
                     onChange={(e) => setCashPaid(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none transition-all"
-                    placeholder="R$ 0,00"
-                    min={getTotal()}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 outline-none transition-all"
+                    placeholder="0.00"
                     step="0.01"
+                    min="0"
                   />
                   {cashPaid && parseFloat(cashPaid) >= getTotal() && (
-                    <p className="text-sm text-green-600 mt-1">
-                      💰 Troco: R$ {(parseFloat(cashPaid) - getTotal()).toFixed(2)}
+                    <p className="text-green-600 text-sm mt-1">
+                      Troco: R$ {(parseFloat(cashPaid) - getTotal()).toFixed(2)}
                     </p>
                   )}
                 </div>
@@ -759,13 +701,25 @@ export default function CustomerPage() {
 
               <button
                 onClick={handleSubmitOrder}
-                disabled={!customerName || !customerPhone || !address || !cashPaid || parseFloat(cashPaid) < getTotal()}
-                className="w-full mt-6 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 disabled:from-gray-300 disabled:to-gray-400 text-white font-bold py-4 px-6 rounded-xl transition-all shadow-lg disabled:shadow-none disabled:cursor-not-allowed"
+                className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 rounded-xl transition-colors mt-6 text-lg"
               >
-                Confirmar Pedido 🍕
+                ✅ Confirmar Pedido
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Floating Cart Button (Mobile) */}
+      {getTotalItems() > 0 && !showCart && !showCheckout && (
+        <div className="fixed bottom-4 left-4 right-4 z-30 md:hidden">
+          <button
+            onClick={() => setShowCart(true)}
+            className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-4 rounded-2xl shadow-xl flex items-center justify-between px-6 transition-colors"
+          >
+            <span>🛒 Ver Carrinho ({getTotalItems()})</span>
+            <span>R$ {getTotal().toFixed(2)}</span>
+          </button>
         </div>
       )}
     </div>

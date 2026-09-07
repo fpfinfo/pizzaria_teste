@@ -6,15 +6,16 @@ export interface Pizza {
   prices: { P: number; M: number; G: number };
   category: 'tradicional' | 'especial' | 'doce';
   emoji: string;
+  available: boolean;
 }
 
 export interface Drink {
   id: string;
   name: string;
-  description: string;
   price: number;
   emoji: string;
-  category: 'refrigerante' | 'suco' | 'agua';
+  category: 'refrigerante' | 'suco' | 'agua' | 'outros';
+  available: boolean;
 }
 
 export interface Crust {
@@ -22,12 +23,7 @@ export interface Crust {
   name: string;
   price: number;
   emoji: string;
-}
-
-export interface Coupon {
-  code: string;
-  discount: number; // percentage
-  description: string;
+  available: boolean;
 }
 
 export const pizzas: Pizza[] = [
@@ -40,6 +36,7 @@ export const pizzas: Pizza[] = [
     prices: { P: 28, M: 38, G: 48 },
     category: 'tradicional',
     emoji: '🍕',
+    available: true,
   },
   {
     id: 'calabresa',
@@ -49,6 +46,7 @@ export const pizzas: Pizza[] = [
     prices: { P: 30, M: 40, G: 52 },
     category: 'tradicional',
     emoji: '🌶️',
+    available: true,
   },
   {
     id: 'portuguesa',
@@ -58,6 +56,7 @@ export const pizzas: Pizza[] = [
     prices: { P: 32, M: 42, G: 54 },
     category: 'tradicional',
     emoji: '🥚',
+    available: true,
   },
   {
     id: 'frango-catupiry',
@@ -67,6 +66,7 @@ export const pizzas: Pizza[] = [
     prices: { P: 32, M: 44, G: 56 },
     category: 'tradicional',
     emoji: '🐔',
+    available: true,
   },
   {
     id: 'quatro-queijos',
@@ -76,6 +76,7 @@ export const pizzas: Pizza[] = [
     prices: { P: 34, M: 46, G: 58 },
     category: 'tradicional',
     emoji: '🧀',
+    available: true,
   },
   {
     id: 'napolitana',
@@ -85,6 +86,7 @@ export const pizzas: Pizza[] = [
     prices: { P: 28, M: 38, G: 50 },
     category: 'tradicional',
     emoji: '🍅',
+    available: true,
   },
   // Especiais
   {
@@ -95,6 +97,7 @@ export const pizzas: Pizza[] = [
     prices: { P: 36, M: 48, G: 60 },
     category: 'especial',
     emoji: '🔴',
+    available: true,
   },
   {
     id: 'bacon',
@@ -104,6 +107,7 @@ export const pizzas: Pizza[] = [
     prices: { P: 36, M: 48, G: 62 },
     category: 'especial',
     emoji: '🥓',
+    available: true,
   },
   {
     id: 'vegetariana',
@@ -113,6 +117,7 @@ export const pizzas: Pizza[] = [
     prices: { P: 34, M: 46, G: 58 },
     category: 'especial',
     emoji: '🥦',
+    available: true,
   },
   {
     id: 'lombo',
@@ -122,6 +127,7 @@ export const pizzas: Pizza[] = [
     prices: { P: 38, M: 50, G: 64 },
     category: 'especial',
     emoji: '🥩',
+    available: true,
   },
   // Doces
   {
@@ -132,6 +138,7 @@ export const pizzas: Pizza[] = [
     prices: { P: 30, M: 40, G: 50 },
     category: 'doce',
     emoji: '🍫',
+    available: true,
   },
   {
     id: 'banana-canela',
@@ -141,6 +148,7 @@ export const pizzas: Pizza[] = [
     prices: { P: 28, M: 38, G: 48 },
     category: 'doce',
     emoji: '🍌',
+    available: true,
   },
   {
     id: 'romeu-julieta',
@@ -150,35 +158,29 @@ export const pizzas: Pizza[] = [
     prices: { P: 30, M: 40, G: 52 },
     category: 'doce',
     emoji: '🍬',
+    available: true,
   },
 ];
 
 export const drinks: Drink[] = [
-  { id: 'coca-2l', name: 'Coca-Cola 2L', description: 'Garrafa 2 litros', price: 12, emoji: '🥤', category: 'refrigerante' },
-  { id: 'coca-lata', name: 'Coca-Cola Lata', description: 'Lata 350ml', price: 6, emoji: '🥫', category: 'refrigerante' },
-  { id: 'guarana-2l', name: 'Guaraná 2L', description: 'Garrafa 2 litros', price: 10, emoji: '🧃', category: 'refrigerante' },
-  { id: 'guarana-lata', name: 'Guaraná Lata', description: 'Lata 350ml', price: 5, emoji: '🥫', category: 'refrigerante' },
-  { id: 'suco-laranja', name: 'Suco de Laranja', description: 'Natural 500ml', price: 9, emoji: '🍊', category: 'suco' },
-  { id: 'suco-uva', name: 'Suco de Uva', description: 'Natural 500ml', price: 9, emoji: '🍇', category: 'suco' },
-  { id: 'agua-sem', name: 'Água sem Gás', description: '500ml', price: 4, emoji: '💧', category: 'agua' },
-  { id: 'agua-com', name: 'Água com Gás', description: '500ml', price: 5, emoji: '🫧', category: 'agua' },
+  { id: 'coca-2l', name: 'Coca-Cola 2L', price: 12, emoji: '🥤', category: 'refrigerante', available: true },
+  { id: 'coca-lata', name: 'Coca-Cola Lata', price: 6, emoji: '🥤', category: 'refrigerante', available: true },
+  { id: 'guarana-2l', name: 'Guaraná 2L', price: 10, emoji: '🥤', category: 'refrigerante', available: true },
+  { id: 'guarana-lata', name: 'Guaraná Lata', price: 5, emoji: '🥤', category: 'refrigerante', available: true },
+  { id: 'sprite-2l', name: 'Sprite 2L', price: 10, emoji: '🥤', category: 'refrigerante', available: true },
+  { id: 'suco-laranja', name: 'Suco de Laranja', price: 8, emoji: '🍊', category: 'suco', available: true },
+  { id: 'suco-uva', name: 'Suco de Uva', price: 8, emoji: '🍇', category: 'suco', available: true },
+  { id: 'agua-sem', name: 'Água sem gás', price: 4, emoji: '💧', category: 'agua', available: true },
+  { id: 'agua-com', name: 'Água com gás', price: 5, emoji: '💧', category: 'agua', available: true },
 ];
 
 export const crusts: Crust[] = [
-  { id: 'normal', name: 'Normal', price: 0, emoji: '⭕' },
-  { id: 'catupiry', name: 'Catupiry', price: 6, emoji: '🧀' },
-  { id: 'cheddar', name: 'Cheddar', price: 6, emoji: '🟡' },
-  { id: 'chocolate-borda', name: 'Chocolate', price: 8, emoji: '🍫' },
-  { id: 'nutella', name: 'Nutella', price: 10, emoji: '🤎' },
+  { id: 'sem-borda', name: 'Sem borda', price: 0, emoji: '⭕', available: true },
+  { id: 'catupiry-borda', name: 'Borda de Catupiry', price: 8, emoji: '🧀', available: true },
+  { id: 'cheddar-borda', name: 'Borda de Cheddar', price: 8, emoji: '🧀', available: true },
+  { id: 'chocolate-borda', name: 'Borda de Chocolate', price: 10, emoji: '🍫', available: true },
+  { id: 'nutella-borda', name: 'Borda de Nutella', price: 12, emoji: '🍫', available: true },
 ];
-
-export const coupons: Coupon[] = [
-  { code: 'BEMVINDO10', discount: 10, description: '10% de desconto' },
-  { code: 'PROMO20', discount: 20, description: '20% de desconto' },
-  { code: 'FRETE5', discount: 5, description: '5% de desconto' },
-];
-
-export const deliveryFee = 5.00;
 
 export const sizes = {
   P: { label: 'Pequena', slices: '4 fatias', diameter: '25cm' },
@@ -186,9 +188,19 @@ export const sizes = {
   G: { label: 'Grande', slices: '8 fatias', diameter: '35cm' },
 };
 
+export const deliveryFee = 5;
+
+export const coupons: Record<string, number> = {
+  'BEMVINDO': 10,
+  'PROMO15': 15,
+  'VIP20': 20,
+};
+
 export const estimatedTime = {
-  novo: '40-50 min',
-  preparando: '25-35 min',
-  pronto: '10-15 min',
-  entregue: 'Entregue ✅',
+  min: 30,
+  max: 45,
+  label: '30-45 min',
+  novo: '~45 min',
+  preparando: '~25 min',
+  pronto: '~10 min',
 };

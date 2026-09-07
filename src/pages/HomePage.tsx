@@ -19,7 +19,7 @@ export default function HomePage() {
         </div>
 
         {/* Action Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl w-full">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl w-full">
           {/* Customer */}
           <Link
             to="/cliente"
@@ -62,6 +62,21 @@ export default function HomePage() {
             </p>
             <div className="mt-4 text-gray-500 font-semibold text-sm group-hover:text-gray-700">
               Acessar →
+            </div>
+          </Link>
+
+          {/* Admin */}
+          <Link
+            to="/admin"
+            className="group bg-white rounded-3xl shadow-lg hover:shadow-2xl p-8 text-center transition-all transform hover:-translate-y-2 border border-gray-100 hover:border-purple-200"
+          >
+            <div className="text-5xl mb-4 group-hover:scale-110 transition-transform">⚙️</div>
+            <h2 className="text-xl font-bold text-gray-800 mb-2">Administração</h2>
+            <p className="text-sm text-gray-500">
+              Gerencie produtos, preços e cardápio
+            </p>
+            <div className="mt-4 text-purple-500 font-semibold text-sm group-hover:text-purple-600">
+              Gerenciar →
             </div>
           </Link>
         </div>
