@@ -31,7 +31,7 @@ export default function AdminPage() {
   const [drinkForm, setDrinkForm] = useState({
     name: '', price: '', emoji: '🥤',
     category: 'refrigerante' as 'refrigerante' | 'suco' | 'agua' | 'outros',
-    available: true,
+    available: true, stock: '',
   });
 
   // Crust form state
@@ -45,7 +45,7 @@ export default function AdminPage() {
   };
 
   const resetDrinkForm = () => {
-    setDrinkForm({ name: '', price: '', emoji: '🥤', category: 'refrigerante', available: true });
+    setDrinkForm({ name: '', price: '', emoji: '🥤', category: 'refrigerante', available: true, stock: '' });
     setEditingDrink(null);
   };
 
@@ -84,6 +84,7 @@ export default function AdminPage() {
       emoji: drinkForm.emoji,
       category: drinkForm.category,
       available: drinkForm.available,
+      stock: drinkForm.stock ? parseInt(drinkForm.stock) : 0,
     };
 
     if (editingDrink) {
@@ -134,6 +135,7 @@ export default function AdminPage() {
       emoji: drink.emoji,
       category: drink.category,
       available: drink.available,
+      stock: drink.stock.toString(),
     });
     setEditingDrink(drink.id);
   };
@@ -160,7 +162,13 @@ export default function AdminPage() {
               <p className="text-xs text-gray-500">Gerencie o cardápio da pizzaria</p>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            <a
+              href="/relatorios"
+              className="bg-emerald-100 hover:bg-emerald-200 text-emerald-700 px-4 py-2 rounded-xl font-semibold transition-colors text-sm"
+            >
+              📊 Relatórios
+            </a>
             <button
               onClick={() => setShowConfirmReset(true)}
               className="bg-red-100 hover:bg-red-200 text-red-700 px-4 py-2 rounded-xl font-semibold transition-colors text-sm"
@@ -427,6 +435,17 @@ export default function AdminPage() {
                     <option value="outros">Outros</option>
                   </select>
                 </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Estoque *</label>
+                  <input
+                    type="number"
+                    value={drinkForm.stock}
+                    onChange={(e) => setDrinkForm({ ...drinkForm, stock: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 outline-none"
+                    placeholder="20"
+                    min="0"
+                  />
+                </div>
                 <div className="flex items-center gap-2">
                   <input
                     type="checkbox"
@@ -456,36 +475,75 @@ export default function AdminPage() {
             <div className="bg-white rounded-2xl p-6 shadow-sm">
               <h2 className="text-lg font-bold text-gray-800 mb-4">📋 Bebidas Cadastradas</h2>
               <div className="space-y-2">
-                {drinks.map((drink) => (
-                  <div key={drink.id} className={`flex items-center justify-between p-3 rounded-xl border ${drink.available ? 'border-gray-200 bg-white' : 'border-red-200 bg-red-50 opacity-60'}`}>
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">{drink.emoji}</span>
-                      <div>
-                        <p className="font-semibold text-gray-800">{drink.name}</p>
-                        <p className="text-xs text-gray-500">{drink.category} • R$ {drink.price.toFixed(2)}</p>
+                {drinks.map((drink) => {
+                  const lowStock = drink.stock <= 5 && drink.stock > 0;
+                  const noStock = drink.stock === 0;
+                  return (
+                    <div key={drink.id} className={`flex flex-col md:flex-row md:items-center justify-between p-3 rounded-xl border gap-3 ${
+                      noStock ? 'border-red-300 bg-red-50' : lowStock ? 'border-yellow-300 bg-yellow-50' : 'border-gray-200 bg-white'
+                    }`}>
+                      <div className="flex items-center gap-3 flex-1">
+                        <span className="text-2xl">{drink.emoji}</span>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-semibold text-gray-800">{drink.name}</p>
+                            {noStock && <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-full font-bold">ESGOTADO</span>}
+                            {lowStock && <span className="text-xs bg-yellow-500 text-white px-2 py-0.5 rounded-full font-bold">ESTOQUE BAIXO</span>}
+                          </div>
+                          <p className="text-xs text-gray-500">{drink.category} • R$ {drink.price.toFixed(2)}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {/* Stock Control */}
+                        <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+                          <button
+                            onClick={() => updateDrink(drink.id, { stock: Math.max(0, drink.stock - 1) })}
+                            className="w-7 h-7 rounded bg-white hover:bg-red-100 text-red-600 font-bold text-sm transition-colors flex items-center justify-center"
+                          >
+                            −
+                          </button>
+                          <input
+                            type="number"
+                            value={drink.stock}
+                            onChange={(e) => updateDrink(drink.id, { stock: Math.max(0, parseInt(e.target.value) || 0) })}
+                            className="w-12 text-center bg-white rounded py-1 text-sm font-bold text-gray-800 border-0 outline-none"
+                            min="0"
+                          />
+                          <button
+                            onClick={() => updateDrink(drink.id, { stock: drink.stock + 1 })}
+                            className="w-7 h-7 rounded bg-white hover:bg-green-100 text-green-600 font-bold text-sm transition-colors flex items-center justify-center"
+                          >
+                            +
+                          </button>
+                          <button
+                            onClick={() => updateDrink(drink.id, { stock: drink.stock + 10 })}
+                            className="px-2 h-7 rounded bg-white hover:bg-blue-100 text-blue-600 font-bold text-xs transition-colors"
+                            title="Adicionar 10"
+                          >
+                            +10
+                          </button>
+                        </div>
+                        <button
+                          onClick={() => updateDrink(drink.id, { available: !drink.available })}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                            drink.available ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200'
+                          }`}
+                        >
+                          {drink.available ? '✅ Ativo' : '❌ Inativo'}
+                        </button>
+                        <button onClick={() => startEditDrink(drink)} className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors">
+                          ✏️ Editar
+                        </button>
+                        <button
+                          onClick={() => { if (confirm('Remover esta bebida?')) removeDrink(drink.id); }}
+                          className="bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                        >
+                          🗑️
+                        </button>
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => updateDrink(drink.id, { available: !drink.available })}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                          drink.available ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200'
-                        }`}
-                      >
-                        {drink.available ? '✅ Ativo' : '❌ Inativo'}
-                      </button>
-                      <button onClick={() => startEditDrink(drink)} className="bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors">
-                        ✏️ Editar
-                      </button>
-                      <button
-                        onClick={() => { if (confirm('Remover esta bebida?')) removeDrink(drink.id); }}
-                        className="bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
-                      >
-                        🗑️
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>

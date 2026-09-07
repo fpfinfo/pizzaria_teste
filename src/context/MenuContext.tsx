@@ -11,6 +11,7 @@ interface MenuContextType {
   addDrink: (drink: Omit<Drink, 'id'>) => void;
   updateDrink: (id: string, drink: Partial<Drink>) => void;
   removeDrink: (id: string) => void;
+  decrementDrinkStock: (id: string, quantity: number) => void;
   addCrust: (crust: Omit<Crust, 'id'>) => void;
   updateCrust: (id: string, crust: Partial<Crust>) => void;
   removeCrust: (id: string) => void;
@@ -78,6 +79,18 @@ export function MenuProvider({ children }: { children: ReactNode }) {
     setDrinks((prev) => prev.filter((d) => d.id !== id));
   };
 
+  const decrementDrinkStock = (id: string, quantity: number) => {
+    setDrinks((prev) =>
+      prev.map((d) => {
+        if (d.id === id) {
+          const newStock = Math.max(0, d.stock - quantity);
+          return { ...d, stock: newStock, available: newStock > 0 };
+        }
+        return d;
+      })
+    );
+  };
+
   // Crust CRUD
   const addCrust = (crust: Omit<Crust, 'id'>) => {
     const newCrust: Crust = { ...crust, id: `crust-${Date.now()}` };
@@ -106,7 +119,7 @@ export function MenuProvider({ children }: { children: ReactNode }) {
       value={{
         pizzas, drinks, crusts,
         addPizza, updatePizza, removePizza,
-        addDrink, updateDrink, removeDrink,
+        addDrink, updateDrink, removeDrink, decrementDrinkStock,
         addCrust, updateCrust, removeCrust,
         resetMenu,
       }}

@@ -24,7 +24,7 @@ type CartItem = CartPizzaItem | CartDrinkItem;
 
 export default function CustomerPage() {
   const { addOrder } = useOrders();
-  const { pizzas, drinks, crusts } = useMenu();
+  const { pizzas, drinks, crusts, decrementDrinkStock } = useMenu();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>('pizzas');
   const [selectedCategory, setSelectedCategory] = useState<'tradicional' | 'especial' | 'doce'>('tradicional');
@@ -204,6 +204,13 @@ export default function CustomerPage() {
       notes,
       couponCode: appliedCoupon?.code,
     });
+
+    // Decrementa estoque das bebidas
+    cart
+      .filter((item): item is CartDrinkItem => item.type === 'drink')
+      .forEach((item) => {
+        decrementDrinkStock(item.drink.id, item.quantity);
+      });
 
     setOrderId(id);
     setOrderSuccess(true);
@@ -401,22 +408,42 @@ export default function CustomerPage() {
 
           <div className="max-w-6xl mx-auto px-4 py-4">
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              {filteredDrinks.map((drink) => (
-                <div
-                  key={drink.id}
-                  className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-lg transition-all border border-gray-100 hover:border-orange-200 text-center"
-                >
-                  <span className="text-4xl">{drink.emoji}</span>
-                  <h3 className="font-bold text-gray-800 mt-2 text-sm">{drink.name}</h3>
-                  <p className="font-bold text-orange-600 mt-2">R$ {drink.price.toFixed(2)}</p>
-                  <button
-                    onClick={() => addDrinkToCart(drink)}
-                    className="mt-2 w-full bg-orange-100 hover:bg-orange-200 text-orange-600 py-2 rounded-lg text-sm font-semibold transition-colors"
+              {filteredDrinks.map((drink) => {
+                const isOutOfStock = drink.stock === 0;
+                return (
+                  <div
+                    key={drink.id}
+                    className={`bg-white rounded-2xl p-4 shadow-sm transition-all border text-center relative ${
+                      isOutOfStock ? 'border-gray-200 opacity-60' : 'border-gray-100 hover:border-orange-200 hover:shadow-lg'
+                    }`}
                   >
-                    + Adicionar
-                  </button>
-                </div>
-              ))}
+                    {isOutOfStock && (
+                      <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                        ESGOTADO
+                      </div>
+                    )}
+                    {!isOutOfStock && drink.stock <= 5 && (
+                      <div className="absolute top-2 right-2 bg-yellow-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                        Últimas {drink.stock}
+                      </div>
+                    )}
+                    <span className="text-4xl">{drink.emoji}</span>
+                    <h3 className="font-bold text-gray-800 mt-2 text-sm">{drink.name}</h3>
+                    <p className="font-bold text-orange-600 mt-2">R$ {drink.price.toFixed(2)}</p>
+                    <button
+                      onClick={() => addDrinkToCart(drink)}
+                      disabled={isOutOfStock}
+                      className={`mt-2 w-full py-2 rounded-lg text-sm font-semibold transition-colors ${
+                        isOutOfStock
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          : 'bg-orange-100 hover:bg-orange-200 text-orange-600'
+                      }`}
+                    >
+                      {isOutOfStock ? 'Indisponível' : '+ Adicionar'}
+                    </button>
+                  </div>
+                );
+              })}
             </div>
             {filteredDrinks.length === 0 && (
               <div className="text-center py-12 text-gray-400">

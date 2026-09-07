@@ -79,6 +79,21 @@ export default function HomePage() {
               Gerenciar →
             </div>
           </Link>
+
+          {/* Reports */}
+          <Link
+            to="/relatorios"
+            className="group bg-white rounded-3xl shadow-lg hover:shadow-2xl p-8 text-center transition-all transform hover:-translate-y-2 border border-gray-100 hover:border-emerald-200 md:col-span-2 lg:col-span-2"
+          >
+            <div className="text-5xl mb-4 group-hover:scale-110 transition-transform">📊</div>
+            <h2 className="text-xl font-bold text-gray-800 mb-2">Relatórios de Vendas</h2>
+            <p className="text-sm text-gray-500">
+              Acompanhe vendas, produtos mais vendidos e faturamento
+            </p>
+            <div className="mt-4 text-emerald-500 font-semibold text-sm group-hover:text-emerald-600">
+              Ver relatórios →
+            </div>
+          </Link>
         </div>
 
         {/* Features */}

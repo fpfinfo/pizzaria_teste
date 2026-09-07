@@ -16,6 +16,7 @@ export interface Drink {
   emoji: string;
   category: 'refrigerante' | 'suco' | 'agua' | 'outros';
   available: boolean;
+  stock: number;
 }
 
 export interface Crust {
@@ -163,15 +164,15 @@ export const pizzas: Pizza[] = [
 ];
 
 export const drinks: Drink[] = [
-  { id: 'coca-2l', name: 'Coca-Cola 2L', price: 12, emoji: '🥤', category: 'refrigerante', available: true },
-  { id: 'coca-lata', name: 'Coca-Cola Lata', price: 6, emoji: '🥤', category: 'refrigerante', available: true },
-  { id: 'guarana-2l', name: 'Guaraná 2L', price: 10, emoji: '🥤', category: 'refrigerante', available: true },
-  { id: 'guarana-lata', name: 'Guaraná Lata', price: 5, emoji: '🥤', category: 'refrigerante', available: true },
-  { id: 'sprite-2l', name: 'Sprite 2L', price: 10, emoji: '🥤', category: 'refrigerante', available: true },
-  { id: 'suco-laranja', name: 'Suco de Laranja', price: 8, emoji: '🍊', category: 'suco', available: true },
-  { id: 'suco-uva', name: 'Suco de Uva', price: 8, emoji: '🍇', category: 'suco', available: true },
-  { id: 'agua-sem', name: 'Água sem gás', price: 4, emoji: '💧', category: 'agua', available: true },
-  { id: 'agua-com', name: 'Água com gás', price: 5, emoji: '💧', category: 'agua', available: true },
+  { id: 'coca-2l', name: 'Coca-Cola 2L', price: 12, emoji: '🥤', category: 'refrigerante', available: true, stock: 20 },
+  { id: 'coca-lata', name: 'Coca-Cola Lata', price: 6, emoji: '🥤', category: 'refrigerante', available: true, stock: 30 },
+  { id: 'guarana-2l', name: 'Guaraná 2L', price: 10, emoji: '🥤', category: 'refrigerante', available: true, stock: 15 },
+  { id: 'guarana-lata', name: 'Guaraná Lata', price: 5, emoji: '🥤', category: 'refrigerante', available: true, stock: 25 },
+  { id: 'sprite-2l', name: 'Sprite 2L', price: 10, emoji: '🥤', category: 'refrigerante', available: true, stock: 15 },
+  { id: 'suco-laranja', name: 'Suco de Laranja', price: 8, emoji: '🍊', category: 'suco', available: true, stock: 10 },
+  { id: 'suco-uva', name: 'Suco de Uva', price: 8, emoji: '🍇', category: 'suco', available: true, stock: 10 },
+  { id: 'agua-sem', name: 'Água sem gás', price: 4, emoji: '💧', category: 'agua', available: true, stock: 40 },
+  { id: 'agua-com', name: 'Água com gás', price: 5, emoji: '💧', category: 'agua', available: true, stock: 30 },
 ];
 
 export const crusts: Crust[] = [
